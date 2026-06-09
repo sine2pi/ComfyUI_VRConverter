@@ -898,7 +898,7 @@ def split_video(input_path, mode, output_dir, conversion="none", log_callback=No
         output_left = os.path.join(output_dir, f"{filename}_L{fisheye_suffix}{ext}")
         output_right = os.path.join(output_dir, f"{filename}_R{fisheye_suffix}{ext}")
 
-        filter_complex = f"[0:v]fps={fps},setpts=N/({fps}*TB),split=2[v1][v2];[v1]crop=iw/2:ih:0:0{v360_filter},scale=w={width}:h={height}:flags=bicubic[left];[v2]crop=iw/2:ih:iw/2:0{v360_filter},scale=w={width}:h={height}:flags=bicubic[right]"
+        filter_complex = f"[0:v]fps={fps},setpts=N/({fps}*TB),split=2[v1][v2];[v1]crop=iw/2:iw/2:0:(ih-iw/2)/2{v360_filter},scale=w={width}:h={height}:flags=bicubic[left];[v2]crop=iw/2:iw/2:iw/2:(ih-iw/2)/2{v360_filter},scale=w={width}:h={height}:flags=bicubic[right]"
         
         cmd = ["ffmpeg", "-hide_banner", "-y"]
         cmd.extend(decoder_opts)
@@ -923,7 +923,7 @@ def split_video(input_path, mode, output_dir, conversion="none", log_callback=No
         output_top = os.path.join(output_dir, f"{filename}_T{fisheye_suffix}{ext}")
         output_bottom = os.path.join(output_dir, f"{filename}_B{fisheye_suffix}{ext}")
 
-        filter_complex = f"[0:v]fps={fps},setpts=N/({fps}*TB),split=2[v1][v2];[v1]crop=iw/2:ih/2:iw/4:0{v360_filter},scale=w={width}:h={height}:flags=bicubic[top];[v2]crop=iw/2:ih/2:iw/4:ih/2{v360_filter},scale=w={width}:h={height}:flags=bicubic[bottom]"
+        filter_complex = f"[0:v]fps={fps},setpts=N/({fps}*TB),split=2[v1][v2];[v1]crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter},scale=w={width}:h={height}:flags=bicubic[top];[v2]crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter},scale=w={width}:h={height}:flags=bicubic[bottom]"
         
         cmd = ["ffmpeg", "-hide_banner", "-y"]
         cmd.extend(decoder_opts)
@@ -947,16 +947,16 @@ def split_video(input_path, mode, output_dir, conversion="none", log_callback=No
         
     else:
         if mode == 'left':
-            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:ih:0:0{v360_filter},scale=w={width}:h={height}:flags=bicubic"
+            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:iw/2:0:(ih-iw/2)/2{v360_filter},scale=w={width}:h={height}:flags=bicubic"
             suffix = '_L'
         elif mode == 'right':
-            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:ih:iw/2:0{v360_filter},scale=w={width}:h={height}:flags=bicubic"
+            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:iw/2:iw/2:(ih-iw/2)/2{v360_filter},scale=w={width}:h={height}:flags=bicubic"
             suffix = '_R' 
         elif mode == 'top':
-            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:ih/2:iw/4:0{v360_filter},scale=w={width}:h={height}:flags=bicubic"
+            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter},scale=w={width}:h={height}:flags=bicubic"
             suffix = '_T' 
         elif mode == 'bottom':
-            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:ih/2:iw/4:ih/2{v360_filter},scale=w={width}:h={height}:flags=bicubic"
+            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter},scale=w={width}:h={height}:flags=bicubic"
             suffix = '_B' 
         else:
             raise ValueError(f"Unknown split mode: {mode}")
@@ -1060,7 +1060,7 @@ def tb_to_sbs(input_path, output_path, conversion="none", log_callback=None, pro
         hi = h_in // 2 if h_in > 0 else 0
     elif operation_mode == "sbs_to_tb":
         wi = w_in // 2 if w_in > 0 else 0
-    else: # custom_tb_to_sbs
+    else: 
         wi = w_in // 2 if w_in > 0 else 0
         hi = h_in // 2 if h_in > 0 else 0
         
@@ -1096,32 +1096,32 @@ def tb_to_sbs(input_path, output_path, conversion="none", log_callback=None, pro
     base_filter = ""
     if operation_mode == "sbs_to_sbs":
         base_filter = (
-            f"[0:v]crop=iw/2:ih:0:0{v360_filter}[left];"
-            f"[0:v]crop=iw/2:ih:iw/2:0{v360_filter}[right];"
+            f"[0:v]crop=iw/2:iw/2:0:(ih-iw/2)/2{v360_filter}[left];"
+            f"[0:v]crop=iw/2:iw/2:iw/2:(ih-iw/2)/2{v360_filter}[right];"
             f"[left][right]hstack=inputs=2"
         )
     elif operation_mode == "tb_to_tb":
         base_filter = (
-            f"[0:v]crop=iw/2:ih/2:iw/4:0{v360_filter}[top];"
-            f"[0:v]crop=iw/2:ih/2:iw/4:ih/2{v360_filter}[bottom];"
+            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter}[top];"
+            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter}[bottom];"
             f"[top][bottom]vstack=inputs=2"
         )
     elif operation_mode == "tb_to_sbs":
         base_filter = (
-            f"[0:v]crop=iw/2:ih/2:iw/4:0{v360_filter}[top];"
-            f"[0:v]crop=iw/2:ih/2:iw/4:ih/2{v360_filter}[bottom];"
+            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter}[top];"
+            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter}[bottom];"
             f"[top][bottom]hstack=inputs=2"
         )
     elif operation_mode == "sbs_to_tb":
         base_filter = (
-            f"[0:v]crop=iw/2:ih:0:0{v360_filter}[left];"
-            f"[0:v]crop=iw/2:ih:iw/2:0{v360_filter}[right];"
+            f"[0:v]crop=iw/2:iw/2:0:(ih-iw/2)/2{v360_filter}[left];"
+            f"[0:v]crop=iw/2:iw/2:iw/2:(ih-iw/2)/2{v360_filter}[right];"
             f"[left][right]vstack=inputs=2"
         )
-    else: # custom_tb_to_sbs
+    else: 
         base_filter = (
-            f"[0:v]crop=iw/2:ih/2:iw/4:0{v360_filter}[left];"
-            f"[0:v]crop=iw/2:ih/2:iw/4:ih/2{v360_filter}[right];"
+            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter}[left];"
+            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter}[right];"
             f"[left][right]hstack=inputs=2"
         )
 
