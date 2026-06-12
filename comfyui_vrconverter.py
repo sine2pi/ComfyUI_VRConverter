@@ -871,9 +871,9 @@ def split_video(input_path, mode, output_dir, conversion="none", log_callback=No
 
     decoder_opts = []
     if codec == 'h264':
-        decoder_opts = ["-hwaccel", "auto"]
+        decoder_opts = ["-hwaccel", "cuda", "-c:v", "h264_cuvid"]
     elif codec == 'hevc':
-        decoder_opts = ["-hwaccel", "auto"]
+        decoder_opts = ["-hwaccel", "cuda", "-c:v", "hevc_cuvid"]
 
     v360_filter = ""
     fisheye_suffix = ""
@@ -898,19 +898,19 @@ def split_video(input_path, mode, output_dir, conversion="none", log_callback=No
         output_left = os.path.join(output_dir, f"{filename}_L{fisheye_suffix}{ext}")
         output_right = os.path.join(output_dir, f"{filename}_R{fisheye_suffix}{ext}")
 
-        filter_complex = f"[0:v]fps={fps},setpts=N/({fps}*TB),split=2[v1][v2];[v1]crop=iw/2:iw/2:0:(ih-iw/2)/2{v360_filter},scale=w={width}:h={height}:flags=bicubic[left];[v2]crop=iw/2:iw/2:iw/2:(ih-iw/2)/2{v360_filter},scale=w={width}:h={height}:flags=bicubic[right]"
+        filter_complex = f"[0:v]fps={fps},setpts=N/({fps}*TB),split=2[v1][v2];[v1]crop=iw/2:ih:0:0{v360_filter},scale=w={width}:h={height}:flags=bicubic[left];[v2]crop=iw/2:ih:iw/2:0{v360_filter},scale=w={width}:h={height}:flags=bicubic[right]"
         
         cmd = ["ffmpeg", "-hide_banner", "-y"]
         cmd.extend(decoder_opts)
         cmd.extend(["-i", input_path])
         cmd.extend(["-sws_flags", "bicubic+full_chroma_int+accurate_rnd+full_chroma_inp"])
         cmd.extend(["-filter_complex", filter_complex])
-        cmd.extend(["-map", "[left]", "-map", "0:a?"])
+        cmd.extend(["-map", "[left]", "-map", "0:a:?"])
         cmd.extend(get_codec_opts(out_codec, bitrate, include_audio=True))
         cmd.extend(["-movflags", "+faststart+write_colr+use_metadata_tags"])
         cmd.extend([output_left])
 
-        cmd.extend(["-map", "[right]", "-map", "0:a?"])
+        cmd.extend(["-map", "[right]", "-map", "0:a:?"])
         cmd.extend(get_codec_opts(out_codec, bitrate, include_audio=True))
         cmd.extend(["-movflags", "+faststart+write_colr+use_metadata_tags"])
         cmd.extend([output_right])
@@ -923,19 +923,19 @@ def split_video(input_path, mode, output_dir, conversion="none", log_callback=No
         output_top = os.path.join(output_dir, f"{filename}_T{fisheye_suffix}{ext}")
         output_bottom = os.path.join(output_dir, f"{filename}_B{fisheye_suffix}{ext}")
 
-        filter_complex = f"[0:v]fps={fps},setpts=N/({fps}*TB),split=2[v1][v2];[v1]crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter},scale=w={width}:h={height}:flags=bicubic[top];[v2]crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter},scale=w={width}:h={height}:flags=bicubic[bottom]"
+        filter_complex = f"[0:v]fps={fps},setpts=N/({fps}*TB),split=2[v1][v2];[v1]crop=iw/2:ih/2:iw/4:0{v360_filter},scale=w={width}:h={height}:flags=bicubic[top];[v2]crop=iw/2:ih/2:iw/4:ih/2{v360_filter},scale=w={width}:h={height}:flags=bicubic[bottom]"
         
         cmd = ["ffmpeg", "-hide_banner", "-y"]
         cmd.extend(decoder_opts)
         cmd.extend(["-i", input_path])
         cmd.extend(["-sws_flags", "bicubic+full_chroma_int+accurate_rnd+full_chroma_inp"])
         cmd.extend(["-filter_complex", filter_complex])
-        cmd.extend(["-map", "[top]", "-map", "0:a?"])
+        cmd.extend(["-map", "[top]", "-map", "0:a:?"])
         
         cmd.extend(get_codec_opts(out_codec, bitrate, include_audio=True))
         cmd.extend(["-movflags", "+faststart+write_colr+use_metadata_tags"])
         cmd.extend([output_top])
-        cmd.extend(["-map", "[bottom]", "-map", "0:a?"])
+        cmd.extend(["-map", "[bottom]", "-map", "0:a:?"])
 
         cmd.extend(get_codec_opts(out_codec, bitrate, include_audio=True))
         cmd.extend(["-movflags", "+faststart+write_colr+use_metadata_tags"])
@@ -947,16 +947,16 @@ def split_video(input_path, mode, output_dir, conversion="none", log_callback=No
         
     else:
         if mode == 'left':
-            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:iw/2:0:(ih-iw/2)/2{v360_filter},scale=w={width}:h={height}:flags=bicubic"
+            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:ih:0:0{v360_filter},scale=w={width}:h={height}:flags=bicubic"
             suffix = '_L'
         elif mode == 'right':
-            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:iw/2:iw/2:(ih-iw/2)/2{v360_filter},scale=w={width}:h={height}:flags=bicubic"
+            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:ih:iw/2:0{v360_filter},scale=w={width}:h={height}:flags=bicubic"
             suffix = '_R' 
         elif mode == 'top':
-            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter},scale=w={width}:h={height}:flags=bicubic"
+            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:ih/2:iw/4:0{v360_filter},scale=w={width}:h={height}:flags=bicubic"
             suffix = '_T' 
         elif mode == 'bottom':
-            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter},scale=w={width}:h={height}:flags=bicubic"
+            crop_filter = f"fps={fps},setpts=N/({fps}*TB),crop=iw/2:ih/2:iw/4:ih/2{v360_filter},scale=w={width}:h={height}:flags=bicubic"
             suffix = '_B' 
         else:
             raise ValueError(f"Unknown split mode: {mode}")
@@ -992,20 +992,16 @@ def combine_video(input_path_1, input_path_2, mode, output_path, conversion="non
     dim_str = f":w={w_in}:h={h_in}" if w_in > 0 and h_in > 0 else ""
 
     input_opts_1 = []
-    if codec1 in ('h264', 'hevc'):
-        input_opts_1 = ["-hwaccel", "auto"]
-        
-    codec2 = vcodec(input_path_2)
-    input_opts_2 = []
-    if codec2 in ('h264', 'hevc'):
-        input_opts_2 = ["-hwaccel", "auto"]
+    if codec1 == 'h264':
+        input_opts_1 = ["-hwaccel", "cuda", "-c:v", "h264_cuvid"]
+    elif codec1 == 'hevc':
+        input_opts_1 = ["-hwaccel", "cuda", "-c:v", "hevc_cuvid"]
     
     cmd = ["ffmpeg", "-hide_banner", "-y"]
     cmd.extend(input_opts_1)
     cmd.extend(["-i", input_path_1])
     if mask_path is not None:
         cmd.extend(["-i", mask_path])
-    cmd.extend(input_opts_2)
     cmd.extend(["-i", input_path_2])
 
     v360_filter = ""
@@ -1038,7 +1034,7 @@ def combine_video(input_path_1, input_path_2, mode, output_path, conversion="non
         filter_complex = f"{base_filter},fps={fps},setpts=N/({fps}*TB),scale=w={width}:h={height}:flags=bicubic[v]"
 
     cmd.extend(["-filter_complex", filter_complex])
-    cmd.extend(["-map", "[v]", "-map", "0:a?"])
+    cmd.extend(["-map", "[v]", "-map", "0:a:?"])
     cmd.extend(["-c:a", "copy"])
     
     cmd.extend(get_codec_opts(out_codec, bitrate, include_audio=False))
@@ -1064,7 +1060,7 @@ def tb_to_sbs(input_path, output_path, conversion="none", log_callback=None, pro
         hi = h_in // 2 if h_in > 0 else 0
     elif operation_mode == "sbs_to_tb":
         wi = w_in // 2 if w_in > 0 else 0
-    else: 
+    else: # custom_tb_to_sbs
         wi = w_in // 2 if w_in > 0 else 0
         hi = h_in // 2 if h_in > 0 else 0
         
@@ -1075,10 +1071,10 @@ def tb_to_sbs(input_path, output_path, conversion="none", log_callback=None, pro
 
     decoder_opts = []
     if codec == 'h264':
-        decoder_opts = ["-hwaccel", "auto"]
+        decoder_opts = ["-hwaccel", "cuda", "-c:v", "h264_cuvid"]
     elif codec == 'hevc':
-        decoder_opts = ["-hwaccel", "auto"]
-
+        decoder_opts = ["-hwaccel", "cuda", "-c:v", "hevc_cuvid"]
+        
     cmd = ["ffmpeg", "-hide_banner", "-y"]
     cmd.extend(decoder_opts)
     cmd.extend(["-i", input_path])
@@ -1100,32 +1096,32 @@ def tb_to_sbs(input_path, output_path, conversion="none", log_callback=None, pro
     base_filter = ""
     if operation_mode == "sbs_to_sbs":
         base_filter = (
-            f"[0:v]crop=iw/2:iw/2:0:(ih-iw/2)/2{v360_filter}[left];"
-            f"[0:v]crop=iw/2:iw/2:iw/2:(ih-iw/2)/2{v360_filter}[right];"
+            f"[0:v]crop=iw/2:ih:0:0{v360_filter}[left];"
+            f"[0:v]crop=iw/2:ih:iw/2:0{v360_filter}[right];"
             f"[left][right]hstack=inputs=2"
         )
     elif operation_mode == "tb_to_tb":
         base_filter = (
-            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter}[top];"
-            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter}[bottom];"
+            f"[0:v]crop=iw/2:ih/2:iw/4:0{v360_filter}[top];"
+            f"[0:v]crop=iw/2:ih/2:iw/4:ih/2{v360_filter}[bottom];"
             f"[top][bottom]vstack=inputs=2"
         )
     elif operation_mode == "tb_to_sbs":
         base_filter = (
-            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter}[top];"
-            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter}[bottom];"
+            f"[0:v]crop=iw/2:ih/2:iw/4:0{v360_filter}[top];"
+            f"[0:v]crop=iw/2:ih/2:iw/4:ih/2{v360_filter}[bottom];"
             f"[top][bottom]hstack=inputs=2"
         )
     elif operation_mode == "sbs_to_tb":
         base_filter = (
-            f"[0:v]crop=iw/2:iw/2:0:(ih-iw/2)/2{v360_filter}[left];"
-            f"[0:v]crop=iw/2:iw/2:iw/2:(ih-iw/2)/2{v360_filter}[right];"
+            f"[0:v]crop=iw/2:ih:0:0{v360_filter}[left];"
+            f"[0:v]crop=iw/2:ih:iw/2:0{v360_filter}[right];"
             f"[left][right]vstack=inputs=2"
         )
-    else: 
+    else: # custom_tb_to_sbs
         base_filter = (
-            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:0{v360_filter}[left];"
-            f"[0:v]crop=ih/2:ih/2:(iw-ih/2)/2:ih/2{v360_filter}[right];"
+            f"[0:v]crop=iw/2:ih/2:iw/4:0{v360_filter}[left];"
+            f"[0:v]crop=iw/2:ih/2:iw/4:ih/2{v360_filter}[right];"
             f"[left][right]hstack=inputs=2"
         )
 
@@ -1194,19 +1190,24 @@ def batch_tb_to_sbs(input_dir, output_dir=None, conversion="none", log_callback=
 
 # -------------------------- COMFYUI NODE CLASSES --------------------------
 
-class VRSplitVideo:
+class VRVideoProcessor:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "input_video_path": ("STRING", {"default": ""}),
-                "output_dir": ("STRING", {"default": ""}),
-                "mode": (["left_and_right", "left", "right", "top_and_bottom", "top", "bottom"],),
+                "action": (["convert", "split", "combine"],),
+                "input_path_1": ("STRING", {"default": ""}),
+                "output_path_or_dir": ("STRING", {"default": ""}),
+                "convert_mode": (["custom_tb_to_sbs", "sbs_to_sbs", "tb_to_tb", "tb_to_sbs", "sbs_to_tb"],),
+                "split_mode": (["left_and_right", "left", "right", "top_and_bottom", "top", "bottom"],),
+                "combine_mode": (["left_right", "top_bottom"],),
                 "conversion": (["none", "to_fisheye", "to_fisheye190", "to_hequirect", "heq_to_flat", "fish_to_flat"],),
                 "bitrate": ("STRING", {"default": "100M"}),
                 "out_codec": (CODEC_OPTIONS,),
             },
             "optional": {
+                "input_path_2_combine": ("STRING", {"default": ""}),
+                "mask_image_path": ("STRING", {"default": ""}),
                 "fps": ("STRING", {"default": ""}),
                 "width": ("STRING", {"default": ""}),
                 "height": ("STRING", {"default": ""}),
@@ -1214,182 +1215,123 @@ class VRSplitVideo:
         }
         
     RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("out_path_1", "out_path_2")
+    RETURN_NAMES = ("output_1", "output_2")
     FUNCTION = "process"
     CATEGORY = "VR/Video"
 
-    def process(self, input_video_path, output_dir, mode, conversion, bitrate, out_codec, fps="", width="", height=""):
-        if not input_video_path or not os.path.exists(input_video_path):
-            raise ValueError(f"Input file not found: {input_video_path}")
+    def process(self, action, input_path_1, output_path_or_dir, convert_mode, split_mode, combine_mode, conversion, bitrate, out_codec, input_path_2_combine="", mask_image_path="", fps="", width="", height=""):
+        if not input_path_1 or not os.path.exists(input_path_1):
+            raise ValueError(f"Input file 1 not found: {input_path_1}")
+
+        if action == "split":
+            if not output_path_or_dir:
+                output_path_or_dir = os.path.dirname(input_path_1)
             
-        if not output_dir:
-            output_dir = os.path.dirname(input_video_path)
-            
-        out1, out2 = split_video(
-            input_video_path, 
-            mode, 
-            output_dir, 
-            conversion=conversion, 
-            bitrate=bitrate, 
-            fps=fps if fps else None, 
-            height=height if height else None, 
-            width=width if width else None, 
-            out_codec=out_codec
-        )
-        return (out1, out2)
-
-class VRCombineVideo:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "input_video_1": ("STRING", {"default": ""}),
-                "input_video_2": ("STRING", {"default": ""}),
-                "output_path": ("STRING", {"default": ""}),
-                "mode": (["left_right", "top_bottom"],),
-                "conversion": (["none", "to_fisheye", "to_fisheye190", "to_hequirect", "heq_to_flat", "fish_to_flat"],),
-                "bitrate": ("STRING", {"default": "100M"}),
-                "out_codec": (CODEC_OPTIONS,),
-            },
-            "optional": {
-                "mask_image_path": ("STRING", {"default": ""}),
-                "fps": ("STRING", {"default": ""}),
-                "width": ("STRING", {"default": ""}),
-                "height": ("STRING", {"default": ""}),
-            }
-        }
-        
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("output_video_path",)
-    FUNCTION = "process"
-    CATEGORY = "VR/Video"
-
-    def process(self, input_video_1, input_video_2, output_path, mode, conversion, bitrate, out_codec, mask_image_path="", fps="", width="", height=""):
-        if not input_video_1 or not os.path.exists(input_video_1):
-            raise ValueError(f"Input file 1 not found: {input_video_1}")
-        if not input_video_2 or not os.path.exists(input_video_2):
-            raise ValueError(f"Input file 2 not found: {input_video_2}")
-
-        if not output_path:
-            dirname = os.path.dirname(input_video_1)
-            filename = os.path.splitext(os.path.basename(input_video_1))[0]
-            for s in ["_L", "_R", "_T", "_B", "_l", "_r", "_t", "_b"]:
-                if filename.endswith(s):
-                    filename = filename[:-len(s)]
-                    break
-            
-            suffix = "_LR" if mode == "left_right" else "_TB"
-            ext_out = get_ext_from_codec(out_codec, ".mp4")
-            output_path = os.path.join(dirname, f"{filename}{suffix}{ext_out}")
-
-        mask_val = mask_image_path if mask_image_path and os.path.exists(mask_image_path) else None
-        
-        out = combine_video(
-            input_video_1, 
-            input_video_2, 
-            mode, 
-            output_path, 
-            conversion=conversion, 
-            bitrate=bitrate, 
-            mask_path=mask_val, 
-            fps=fps if fps else None, 
-            height=height if height else None, 
-            width=width if width else None, 
-            out_codec=out_codec
-        )
-        return (out,)
-
-class VRConvertVideo:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "input_path_or_dir": ("STRING", {"default": ""}),
-                "output_path_or_dir": ("STRING", {"default": ""}),
-                "operation_mode": (["custom_tb_to_sbs", "sbs_to_sbs", "tb_to_tb", "tb_to_sbs", "sbs_to_tb"],),
-                "conversion": (["none", "to_fisheye", "to_fisheye190", "to_hequirect", "heq_to_flat", "fish_to_flat"],),
-                "bitrate": ("STRING", {"default": "100M"}),
-                "out_codec": (CODEC_OPTIONS,),
-            },
-            "optional": {
-                "mask_image_path": ("STRING", {"default": ""}),
-                "fps": ("STRING", {"default": ""}),
-                "width": ("STRING", {"default": ""}),
-                "height": ("STRING", {"default": ""}),
-            }
-        }
-        
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("output_path",)
-    FUNCTION = "process"
-    CATEGORY = "VR/Video"
-
-    def process(self, input_path_or_dir, output_path_or_dir, operation_mode, conversion, bitrate, out_codec, mask_image_path="", fps="", width="", height=""):
-        if not input_path_or_dir or not os.path.exists(input_path_or_dir):
-            raise ValueError(f"Input file or directory not found: {input_path_or_dir}")
-
-        mask_val = mask_image_path if mask_image_path and os.path.exists(mask_image_path) else None
-
-        if os.path.isdir(input_path_or_dir):
-            output_dir = output_path_or_dir if output_path_or_dir and os.path.isdir(output_path_or_dir) else None
-            out = batch_tb_to_sbs(
-                input_path_or_dir,
-                output_dir=output_dir,
-                conversion=conversion,
-                bitrate=bitrate,
-                operation_mode=operation_mode,
-                mask_path=mask_val,
-                fps=fps if fps else None,
-                width=width if width else None,
-                height=height if height else None,
+            out1, out2 = split_video(
+                input_path_1, 
+                split_mode, 
+                output_path_or_dir, 
+                conversion=conversion, 
+                bitrate=bitrate, 
+                fps=fps if fps else None, 
+                height=height if height else None, 
+                width=width if width else None, 
                 out_codec=out_codec
             )
-            return (out,)
-        else:
-            out_file = output_path_or_dir
-            if not out_file or os.path.isdir(out_file):
-                dirname = out_file if out_file else os.path.dirname(input_path_or_dir)
-                filename = os.path.splitext(os.path.basename(input_path_or_dir))[0]
-                suffix = ""
-                if operation_mode in ("sbs_to_tb", "tb_to_tb"):
-                    suffix += "_TB"
-                else:
-                    suffix += "_LR"
+            return (out1, out2 if out2 else "")
 
-                if conversion == "to_fisheye":
-                    suffix = "_FE180" + suffix
-                elif conversion == "to_fisheye190":
-                    suffix = "_FE190" + suffix
-                elif conversion == "to_hequirect":
-                    suffix = "_180" + suffix
-                elif conversion == "heq_to_flat" or conversion == "fish_to_flat":
-                    suffix = "_flat" + suffix
-                    
+        elif action == "combine":
+            if not input_path_2_combine or not os.path.exists(input_path_2_combine):
+                raise ValueError(f"Input file 2 not found for combine action: {input_path_2_combine}")
+
+            if not output_path_or_dir:
+                dirname = os.path.dirname(input_path_1)
+                filename = os.path.splitext(os.path.basename(input_path_1))[0]
+                for s in ["_L", "_R", "_T", "_B", "_l", "_r", "_t", "_b"]:
+                    if filename.endswith(s):
+                        filename = filename[:-len(s)]
+                        break
+                
+                suffix = "_LR" if combine_mode == "left_right" else "_TB"
                 ext_out = get_ext_from_codec(out_codec, ".mp4")
-                out_file = os.path.join(dirname, f"{filename}{suffix}{ext_out}")
+                output_path_or_dir = os.path.join(dirname, f"{filename}{suffix}{ext_out}")
 
-            out = tb_to_sbs(
-                input_path_or_dir,
-                out_file,
-                conversion=conversion,
-                bitrate=bitrate,
-                operation_mode=operation_mode,
-                mask_path=mask_val,
-                fps=fps if fps else None,
-                width=width if width else None,
-                height=height if height else None,
+            mask_val = mask_image_path if mask_image_path and os.path.exists(mask_image_path) else None
+            
+            out = combine_video(
+                input_path_1, 
+                input_path_2_combine, 
+                combine_mode, 
+                output_path_or_dir, 
+                conversion=conversion, 
+                bitrate=bitrate, 
+                mask_path=mask_val, 
+                fps=fps if fps else None, 
+                height=height if height else None, 
+                width=width if width else None, 
                 out_codec=out_codec
             )
-            return (out,)
+            return (out, "")
+
+        elif action == "convert":
+            mask_val = mask_image_path if mask_image_path and os.path.exists(mask_image_path) else None
+
+            if os.path.isdir(input_path_1):
+                output_dir = output_path_or_dir if output_path_or_dir and os.path.isdir(output_path_or_dir) else None
+                out = batch_tb_to_sbs(
+                    input_path_1,
+                    output_dir=output_dir,
+                    conversion=conversion,
+                    bitrate=bitrate,
+                    operation_mode=convert_mode,
+                    mask_path=mask_val,
+                    fps=fps if fps else None,
+                    width=width if width else None,
+                    height=height if height else None,
+                    out_codec=out_codec
+                )
+                return (out, "")
+            else:
+                out_file = output_path_or_dir
+                if not out_file or os.path.isdir(out_file):
+                    dirname = out_file if out_file else os.path.dirname(input_path_1)
+                    filename = os.path.splitext(os.path.basename(input_path_1))[0]
+                    suffix = ""
+                    if convert_mode in ("sbs_to_tb", "tb_to_tb"):
+                        suffix += "_TB"
+                    else:
+                        suffix += "_LR"
+
+                    if conversion == "to_fisheye":
+                        suffix = "_FE180" + suffix
+                    elif conversion == "to_fisheye190":
+                        suffix = "_FE190" + suffix
+                    elif conversion == "to_hequirect":
+                        suffix = "_180" + suffix
+                    elif conversion == "heq_to_flat" or conversion == "fish_to_flat":
+                        suffix = "_flat" + suffix
+                        
+                    ext_out = get_ext_from_codec(out_codec, ".mp4")
+                    out_file = os.path.join(dirname, f"{filename}{suffix}{ext_out}")
+
+                out = tb_to_sbs(
+                    input_path_1,
+                    out_file,
+                    conversion=conversion,
+                    bitrate=bitrate,
+                    operation_mode=convert_mode,
+                    mask_path=mask_val,
+                    fps=fps if fps else None,
+                    width=width if width else None,
+                    height=height if height else None,
+                    out_codec=out_codec
+                )
+                return (out, "")
 
 NODE_CLASS_MAPPINGS = {
-    "VRSplitVideo": VRSplitVideo,
-    "VRCombineVideo": VRCombineVideo,
-    "VRConvertVideo": VRConvertVideo
+    "VRVideoProcessor": VRVideoProcessor
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "VRSplitVideo": "VR Split Video",
-    "VRCombineVideo": "VR Combine Video",
-    "VRConvertVideo": "VR Convert Video"
+    "VRVideoProcessor": "VR Video Processor"
 }
